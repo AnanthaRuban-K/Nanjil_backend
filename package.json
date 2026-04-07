@@ -1,0 +1,40 @@
+{
+  "name": "nanjil-mep-backend",
+  "version": "1.0.0",
+  "description": "Nanjil MEP Service – Local Electrical & Plumbing Booking Backend",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "start:prod": "NODE_ENV=production node dist/main.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "seed:admin": "tsx scripts/seed-admin.ts",
+    "seed:technicians": "tsx scripts/seed-technicians.ts",
+    "backup": "bash scripts/backup-db.sh",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.0",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.39.3",
+    "hono": "^4.7.5",
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^8.0.1",
+    "pg": "^8.13.3",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/node": "^22.13.10",
+    "@types/nodemailer": "^7.0.11",
+    "@types/pg": "^8.18.0",
+    "drizzle-kit": "^0.31.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}
