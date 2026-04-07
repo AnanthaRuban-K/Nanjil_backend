@@ -4,7 +4,7 @@ import { z } from "zod";
 dotenv.config();
 
 const envSchema = z.object({
-  PORT: z.coerce.number().int().positive().default(3000),
+  PORT: z.coerce.number().int().positive().default(4001),
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
@@ -14,7 +14,7 @@ const envSchema = z.object({
     .min(32, "JWT_SECRET must be at least 32 characters"),
   CORS_ORIGIN: z
     .string()
-    .default("http://localhost:3001"),
+    .default("http://localhost:4001"),
 });
 
 const parsed = envSchema.safeParse(process.env);
