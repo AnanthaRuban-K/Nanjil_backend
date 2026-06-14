@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { desc, eq, and, inArray, like } from "drizzle-orm";
 import { db } from "../core/db";
 import { payments, type Payment, type NewPayment } from "../models/payment";
 import { bookings } from "../models/booking";
@@ -13,6 +13,22 @@ export class PaymentRepository {
       .limit(1);
 
     return rows[0];
+  }
+
+  async generateInvoiceNumber(): Promise<string> {
+    const year = new Date().getFullYear();
+    const prefix = `NMI-${year}-`;
+    const rows = await db
+      .select({ invoice: payments.invoiceNumber })
+      .from(payments)
+      .where(like(payments.invoiceNumber, `${prefix}%`))
+      .orderBy(desc(payments.invoiceNumber))
+      .limit(1);
+
+    const last = rows[0]?.invoice;
+    const lastNum = last ? Number.parseInt(last.split("-").at(-1) || "", 10) : 0;
+    const next = Number.isFinite(lastNum) ? lastNum + 1 : 1;
+    return `${prefix}${next.toString().padStart(5, "0")}`;
   }
 
   /**
@@ -31,11 +47,19 @@ export class PaymentRepository {
       // Step 1 — lock: only update if still UNPAID
       const updated = await tx
         .update(bookings)
-        .set({ paymentStatus: "PAID", updatedAt: new Date() })
+        .set({
+          paymentStatus: "PAID",
+          paymentRejectedReason: null,
+          updatedAt: new Date(),
+        })
         .where(
           and(
             eq(bookings.id, data.bookingId),
-            eq(bookings.paymentStatus, "UNPAID")
+            inArray(bookings.paymentStatus, [
+              "UNPAID",
+              "PAYMENT_SUBMITTED",
+              "PAYMENT_REJECTED",
+            ])
           )
         )
         .returning({ id: bookings.id });

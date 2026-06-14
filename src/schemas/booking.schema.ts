@@ -28,6 +28,13 @@ const bookingStatusValues = [
   "CANCELLED",
 ] as const;
 
+const paymentStatusValues = [
+  "UNPAID",
+  "PAYMENT_SUBMITTED",
+  "PAID",
+  "PAYMENT_REJECTED",
+] as const;
+
 // ── Create booking (CUSTOMER) ──────────────────────
 export const createBookingSchema = z.object({
   serviceType: z
@@ -61,6 +68,31 @@ export const assignTechnicianSchema = z.object({
 
 export type AssignTechnicianInput = z.infer<typeof assignTechnicianSchema>;
 
+export const updateServiceAmountSchema = z.object({
+  serviceAmount: z
+    .number()
+    .positive("Service amount must be greater than zero")
+    .max(99999999.99, "Service amount exceeds maximum"),
+});
+
+export type UpdateServiceAmountInput = z.infer<
+  typeof updateServiceAmountSchema
+>;
+
+export const bookingRequestSchema = z.object({
+  type: z.enum(["CANCEL", "RESCHEDULE"]),
+  requestedDate: futureDateSchema.optional(),
+  note: z.string().trim().max(500).optional(),
+}).refine(
+  (data) => data.type !== "RESCHEDULE" || Boolean(data.requestedDate),
+  {
+    path: ["requestedDate"],
+    message: "Requested date is required for reschedule requests",
+  }
+);
+
+export type BookingRequestInput = z.infer<typeof bookingRequestSchema>;
+
 // ── Update status (ADMIN / TECHNICIAN) ─────────────
 export const updateStatusSchema = z.object({
   status: z.enum(bookingStatusValues, {
@@ -85,6 +117,10 @@ export const bookingFilterSchema = z.object({
   page: z.coerce.number().int().positive().catch(1),
   limit: z.coerce.number().int().positive().max(100).catch(10),
   status: z.enum(bookingStatusValues).optional(),
+  paymentStatus: z.enum(paymentStatusValues).optional(),
+  search: z.string().trim().max(100).optional(),
+  dateFrom: dateSchema.optional(),
+  dateTo: dateSchema.optional(),
 });
 
 export type BookingFilterInput = z.infer<typeof bookingFilterSchema>;

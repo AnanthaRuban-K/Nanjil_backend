@@ -7,6 +7,7 @@ import {
   timestamp,
   pgEnum,
   index,
+  numeric,
 } from "drizzle-orm/pg-core";
 import { type InferSelectModel, type InferInsertModel } from "drizzle-orm";
 import { users } from "./user";
@@ -25,7 +26,9 @@ export type BookingStatus = (typeof bookingStatusEnum.enumValues)[number];
 // ── Payment status enum (NEW — Step 3) ─────────────
 export const paymentStatusEnum = pgEnum("payment_status", [
   "UNPAID",
+  "PAYMENT_SUBMITTED",
   "PAID",
+  "PAYMENT_REJECTED",
 ]);
 
 export type PaymentStatus = (typeof paymentStatusEnum.enumValues)[number];
@@ -62,6 +65,19 @@ export const bookings = pgTable(
     paymentStatus: paymentStatusEnum("payment_status")
       .notNull()
       .default("UNPAID"),
+
+    serviceAmount: numeric("service_amount", {
+      precision: 10,
+      scale: 2,
+    }),
+
+    submittedUpiReference: varchar("submitted_upi_reference", { length: 100 }),
+
+    paymentSubmittedAt: timestamp("payment_submitted_at", {
+      withTimezone: true,
+    }),
+
+    paymentRejectedReason: text("payment_rejected_reason"),
 
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

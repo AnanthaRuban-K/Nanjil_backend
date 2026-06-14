@@ -29,6 +29,10 @@ export const payments = pgTable(
       .references(() => bookings.id)
       .unique(),
 
+    invoiceNumber: varchar("invoice_number", { length: 30 })
+      .notNull()
+      .unique(),
+
     amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
 
     paymentMode: paymentModeEnum("payment_mode").notNull(),

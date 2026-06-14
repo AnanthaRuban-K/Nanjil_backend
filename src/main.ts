@@ -4,9 +4,12 @@ import { cors } from "hono/cors";
 import { logger as honoLogger } from "hono/logger";
 
 import { config } from "./core/config";
-import { testConnection } from "./core/db";
+import { csrfMiddleware } from "./core/csrf";
+import { checkConnection, testConnection } from "./core/db";
 import { logger } from "./core/logger";
-import { rateLimiter } from "./core/rate-limiter";
+import { requestIdMiddleware } from "./core/request-id";
+import { securityHeadersMiddleware } from "./core/security-headers";
+import type { AppEnv } from "./core/middleware";
 
 // ── Route imports ──────────────────────────────────
 import { authRoutes } from "./routes/auth.routes";
@@ -20,44 +23,36 @@ import {
   dashboardRoutes,
   analyticsRoutes,
 } from "./routes/analytics.routes";
+import { adminUserRoutes } from "./routes/user.routes";
 
-const app = new Hono();
+const app = new Hono<AppEnv>();
 
 // ── CORS — restrict in production ──────────────────
 app.use(
   "*",
   cors({
-    origin: config.NODE_ENV === "production"
-      ? config.CORS_ORIGIN
-      : "*",
+    origin: config.CORS_ORIGIN,
     allowMethods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-CSRF-Token",
+      "X-Request-ID",
+    ],
+    credentials: true,
     maxAge: 86400,
   })
 );
 
 // ── Request logging ────────────────────────────────
+app.use("*", requestIdMiddleware);
+app.use("*", securityHeadersMiddleware);
 app.use("*", honoLogger());
+app.use("*", csrfMiddleware);
 
 // ── Health check (with DB status) ──────────────────
 app.get("/api/v1/health", async (c) => {
-  let dbStatus = "disconnected";
-  try {
-    const { Pool } = await import("pg");
-    const pool = new Pool({
-      connectionString: config.DATABASE_URL,
-      connectionTimeoutMillis: 3_000,
-    });
-    const client = await pool.connect();
-    await client.query("SELECT 1");
-    client.release();
-    await pool.end();
-    dbStatus = "connected";
-  } catch {
-    dbStatus = "disconnected";
-  }
-
-  const isHealthy = dbStatus === "connected";
+  const isHealthy = await checkConnection();
 
   return c.json(
     {
@@ -65,7 +60,7 @@ app.get("/api/v1/health", async (c) => {
       status: isHealthy ? "healthy" : "degraded",
       message: "Nanjil MEP Service API",
       data: {
-        database: dbStatus,
+        database: isHealthy ? "connected" : "disconnected",
         environment: config.NODE_ENV,
         timestamp: new Date().toISOString(),
       },
@@ -73,12 +68,6 @@ app.get("/api/v1/health", async (c) => {
     isHealthy ? 200 : 503
   );
 });
-
-// ── Rate limit on login (5 per minute per IP) ─────
-app.post(
-  "/api/v1/auth/login",
-  rateLimiter(5, 60_000),
-);
 
 // ── Auth routes (Step 1) ───────────────────────────
 app.route("/api/v1/auth", authRoutes);
@@ -92,6 +81,7 @@ app.route("/api/v1/technician/jobs", technicianJobRoutes);
 app.route("/api/v1/admin/bookings", paymentRoutes);
 app.route("/api/v1/admin/dashboard", dashboardRoutes);
 app.route("/api/v1/admin/analytics", analyticsRoutes);
+app.route("/api/v1/admin", adminUserRoutes);
 
 // ── 404 fallback ───────────────────────────────────
 app.notFound((c) => {
@@ -101,6 +91,7 @@ app.notFound((c) => {
 // ── Global error handler (sanitized in prod) ───────
 app.onError((err, c) => {
   logger.error("UNHANDLED", err.message, {
+    requestId: c.get("requestId"),
     stack: config.NODE_ENV !== "production" ? err.stack : undefined,
   });
 

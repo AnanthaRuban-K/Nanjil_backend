@@ -1,4 +1,5 @@
 import { createMiddleware } from "hono/factory";
+import { getCookie } from "hono/cookie";
 import { verifyToken, type TokenPayload } from "./auth";
 import type { UserRole } from "../models/user";
 
@@ -6,24 +7,28 @@ import type { UserRole } from "../models/user";
 export type AppEnv = {
   Variables: {
     user: TokenPayload;
+    requestId: string;
   };
 };
 
 // ── Auth middleware – verifies JWT ──────────────────
 export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
   const header = c.req.header("Authorization");
+  const cookieToken = getCookie(c, "token");
 
-  if (!header || !header.startsWith("Bearer ")) {
+  if ((!header || !header.startsWith("Bearer ")) && !cookieToken) {
     return c.json(
       { success: false, message: "Authorization token required" },
       401
     );
   }
 
-  const token = header.slice(7); // strip "Bearer "
+  const token = header?.startsWith("Bearer ")
+    ? header.slice(7)
+    : cookieToken;
 
   try {
-    const payload = verifyToken(token);
+    const payload = verifyToken(token as string);
 
     if (!payload.is_active) {
       return c.json(

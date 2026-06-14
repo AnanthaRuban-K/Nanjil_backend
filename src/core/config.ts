@@ -4,7 +4,7 @@ import { z } from "zod";
 dotenv.config();
 
 const envSchema = z.object({
-  PORT: z.coerce.number().int().positive().default(4001),
+  PORT: z.coerce.number().int().positive().default(4000),
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
@@ -15,6 +15,14 @@ const envSchema = z.object({
   CORS_ORIGIN: z
     .string()
     .default("http://localhost:4001"),
+  COOKIE_DOMAIN: z.string().optional(),
+  FRONTEND_URL: z.string().url().default("http://localhost:4001"),
+  ADMIN_EMAILS: z.string().optional(),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

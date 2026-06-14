@@ -1,0 +1,19 @@
+# dependencies
+node_modules/
+
+# production build
+dist/
+
+# local environment files
+.env
+.env.*
+!.env.example
+
+# generated JavaScript from TypeScript sources
+src/**/*.js
+scripts/*.js
+drizzle.config.js
+
+# logs and local OS files
+*.log
+.DS_Store

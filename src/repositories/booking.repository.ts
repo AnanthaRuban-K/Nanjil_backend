@@ -1,15 +1,17 @@
-import { eq, desc, count, and, like } from "drizzle-orm";
+import { eq, desc, count, and, like, inArray, ilike, or, gte, lte } from "drizzle-orm";
 import { db } from "../core/db";
 import {
   bookings,
   type Booking,
   type NewBooking,
   type BookingStatus,
+  type PaymentStatus,
 } from "../models/booking";
 import {
   bookingStatusLogs,
   type NewBookingStatusLog,
 } from "../models/booking-status-log";
+import { users } from "../models/user";
 
 // ── Pagination result shape ────────────────────────
 export interface PaginatedResult<T> {
@@ -132,27 +134,53 @@ export class BookingRepository {
   async findAll(
     page: number,
     limit: number,
-    status?: BookingStatus
+    status?: BookingStatus,
+    paymentStatus?: PaymentStatus,
+    search?: string,
+    dateFrom?: string,
+    dateTo?: string
   ): Promise<PaginatedResult<Booking>> {
     const offset = (page - 1) * limit;
-    const condition = status ? eq(bookings.status, status) : undefined;
+    const conditions = [
+      status ? eq(bookings.status, status) : undefined,
+      paymentStatus ? eq(bookings.paymentStatus, paymentStatus) : undefined,
+      dateFrom ? gte(bookings.preferredDate, dateFrom) : undefined,
+      dateTo ? lte(bookings.preferredDate, dateTo) : undefined,
+      search
+        ? or(
+            ilike(bookings.bookingReference, `%${search}%`),
+            ilike(bookings.serviceType, `%${search}%`),
+            ilike(bookings.serviceAddress, `%${search}%`),
+            ilike(users.fullName, `%${search}%`),
+            ilike(users.email, `%${search}%`),
+            ilike(users.phone, `%${search}%`)
+          )
+        : undefined,
+    ].filter(Boolean);
+    const condition = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const baseQuery = () =>
-      condition
-        ? db.select().from(bookings).where(condition)
-        : db.select().from(bookings);
+    const baseQuery = () => {
+      const query = db
+        .select({ booking: bookings })
+        .from(bookings)
+        .leftJoin(users, eq(bookings.customerId, users.id));
+      return condition ? query.where(condition) : query;
+    };
 
-    const countQuery = () =>
-      condition
-        ? db.select({ total: count() }).from(bookings).where(condition)
-        : db.select({ total: count() }).from(bookings);
+    const countQuery = () => {
+      const query = db
+        .select({ total: count() })
+        .from(bookings)
+        .leftJoin(users, eq(bookings.customerId, users.id));
+      return condition ? query.where(condition) : query;
+    };
 
     const [data, totalRows] = await Promise.all([
       baseQuery().orderBy(desc(bookings.createdAt)).limit(limit).offset(offset),
       countQuery(),
     ]);
 
-    return { data, total: Number(totalRows[0].total) };
+    return { data: data.map((row) => row.booking), total: Number(totalRows[0].total) };
   }
 
   // ────────────────────────────────────────────────
@@ -222,6 +250,71 @@ export class BookingRepository {
   // ────────────────────────────────────────────────
   // Fetch audit trail for a booking
   // ────────────────────────────────────────────────
+  async submitUpiPayment(
+    id: string,
+    customerId: string,
+    upiReference: string
+  ): Promise<Booking | undefined> {
+    const rows = await db
+      .update(bookings)
+      .set({
+        paymentStatus: "PAYMENT_SUBMITTED",
+        submittedUpiReference: upiReference,
+        paymentSubmittedAt: new Date(),
+        paymentRejectedReason: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(bookings.id, id),
+          eq(bookings.customerId, customerId),
+          eq(bookings.status, "COMPLETED"),
+          inArray(bookings.paymentStatus, ["UNPAID", "PAYMENT_REJECTED"])
+        )
+      )
+      .returning();
+
+    return rows[0];
+  }
+
+  async rejectPaymentSubmission(
+    id: string,
+    reason: string | null
+  ): Promise<Booking | undefined> {
+    const rows = await db
+      .update(bookings)
+      .set({
+        paymentStatus: "PAYMENT_REJECTED",
+        paymentRejectedReason: reason,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(bookings.id, id),
+          eq(bookings.paymentStatus, "PAYMENT_SUBMITTED")
+        )
+      )
+      .returning();
+
+    return rows[0];
+  }
+
+  async updateServiceAmount(
+    id: string,
+    amount: string
+  ): Promise<Booking | undefined> {
+    const rows = await db
+      .update(bookings)
+      .set({
+        serviceAmount: amount,
+        updatedAt: new Date(),
+      })
+      .where(eq(bookings.id, id))
+      .returning();
+
+    return rows[0];
+  }
+
   async getStatusLogs(bookingId: string): Promise<NewBookingStatusLog[]> {
     return db
       .select()

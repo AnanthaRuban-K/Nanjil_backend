@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { authMiddleware, roleMiddleware, type AppEnv } from "../core/middleware";
 import { bookingService } from "../services/booking.service";
+import { paymentService } from "../services/payment.service";
 import {
   createBookingSchema,
   assignTechnicianSchema,
@@ -8,7 +9,10 @@ import {
   paginationSchema,
   bookingFilterSchema,
   uuidParamSchema,
+  updateServiceAmountSchema,
+  bookingRequestSchema,
 } from "../schemas/booking.schema";
+import { submitUpiPaymentSchema } from "../schemas/payment.schema";
 
 // ═══════════════════════════════════════════════════
 //  CUSTOMER  –  /api/v1/bookings
@@ -98,6 +102,137 @@ customerBookingRoutes.get("/my/:id", async (c) => {
   return c.json({ success: true, data: result.booking });
 });
 
+customerBookingRoutes.post("/my/:id/payment-submission", async (c) => {
+  const bookingId = c.req.param("id");
+
+  if (!uuidParamSchema.safeParse(bookingId).success) {
+    return c.json({ success: false, message: "Invalid booking ID format" }, 400);
+  }
+
+  const body = await c.req.json().catch(() => null);
+  if (!body) {
+    return c.json(
+      { success: false, message: "Request body must be valid JSON" },
+      400
+    );
+  }
+
+  const parsed = submitUpiPaymentSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json(
+      {
+        success: false,
+        message: "Validation failed",
+        data: parsed.error.flatten().fieldErrors,
+      },
+      422
+    );
+  }
+
+  const user = c.get("user");
+  const result = await paymentService.submitUpiPayment(
+    user.sub,
+    bookingId,
+    parsed.data
+  );
+
+  if (!result.ok) {
+    const map: Record<string, { status: number; message: string }> = {
+      BOOKING_NOT_FOUND: { status: 404, message: "Booking not found" },
+      FORBIDDEN: { status: 403, message: "You do not have access to this booking" },
+      NOT_COMPLETED: { status: 409, message: "Payment can be submitted only after service completion" },
+      ALREADY_PAID: { status: 409, message: "This booking is already paid" },
+      INVALID_STATUS: { status: 409, message: "Payment submission is already pending verification" },
+    };
+    const err = map[result.error];
+    return c.json({ success: false, message: err.message }, err.status as 400);
+  }
+
+  return c.json({
+    success: true,
+    message: "Payment submitted for admin verification",
+    data: result.booking,
+  });
+});
+
+customerBookingRoutes.get("/my/:id/receipt", async (c) => {
+  const bookingId = c.req.param("id");
+
+  if (!uuidParamSchema.safeParse(bookingId).success) {
+    return c.json({ success: false, message: "Invalid booking ID format" }, 400);
+  }
+
+  const user = c.get("user");
+  const result = await paymentService.getReceipt(user.sub, bookingId);
+
+  if (!result.ok) {
+    const map: Record<string, { status: number; message: string }> = {
+      BOOKING_NOT_FOUND: { status: 404, message: "Booking not found" },
+      FORBIDDEN: { status: 403, message: "You do not have access to this booking" },
+      NOT_PAID: { status: 409, message: "Receipt is available only after payment" },
+      PAYMENT_NOT_FOUND: { status: 404, message: "Payment record not found" },
+    };
+    const err = map[result.error];
+    return c.json({ success: false, message: err.message }, err.status as 400);
+  }
+
+  return c.json({
+    success: true,
+    data: {
+      booking: result.booking,
+      payment: result.payment,
+    },
+  });
+});
+
+customerBookingRoutes.post("/my/:id/request", async (c) => {
+  const bookingId = c.req.param("id");
+
+  if (!uuidParamSchema.safeParse(bookingId).success) {
+    return c.json({ success: false, message: "Invalid booking ID format" }, 400);
+  }
+
+  const body = await c.req.json().catch(() => null);
+  if (!body) {
+    return c.json({ success: false, message: "Request body must be valid JSON" }, 400);
+  }
+
+  const parsed = bookingRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json(
+      {
+        success: false,
+        message: "Validation failed",
+        data: parsed.error.flatten().fieldErrors,
+      },
+      422
+    );
+  }
+
+  const user = c.get("user");
+  const result = await bookingService.submitCustomerRequest(
+    user.sub,
+    bookingId,
+    parsed.data
+  );
+
+  if (!result.ok) {
+    const map: Record<string, { status: number; message: string }> = {
+      NOT_FOUND: { status: 404, message: "Booking not found" },
+      FORBIDDEN: { status: 403, message: "You do not have access to this booking" },
+      CLOSED: { status: 409, message: "This booking cannot be changed now" },
+    };
+    const err = map[result.error];
+    return c.json({ success: false, message: err.message }, err.status as 400);
+  }
+
+  return c.json({
+    success: true,
+    message: "Request sent to admin",
+    data: result.booking,
+  });
+});
+
 
 // ═══════════════════════════════════════════════════
 //  ADMIN  –  /api/v1/admin/bookings
@@ -112,6 +247,10 @@ adminBookingRoutes.get("/", async (c) => {
     page: c.req.query("page"),
     limit: c.req.query("limit"),
     status: c.req.query("status") || undefined,
+    paymentStatus: c.req.query("paymentStatus") || undefined,
+    search: c.req.query("search") || undefined,
+    dateFrom: c.req.query("dateFrom") || undefined,
+    dateTo: c.req.query("dateTo") || undefined,
   });
 
   if (!parsed.success) {
@@ -125,8 +264,16 @@ adminBookingRoutes.get("/", async (c) => {
     );
   }
 
-  const { page, limit, status } = parsed.data;
-  const { data, total } = await bookingService.getAllBookings(page, limit, status);
+  const { page, limit, status, paymentStatus, search, dateFrom, dateTo } = parsed.data;
+  const { data, total } = await bookingService.getAllBookings(
+    page,
+    limit,
+    status,
+    paymentStatus,
+    search,
+    dateFrom,
+    dateTo
+  );
 
   return c.json({
     success: true,
@@ -235,6 +382,51 @@ adminBookingRoutes.patch("/:id/status", async (c) => {
   return c.json({
     success: true,
     message: `Booking status updated to ${parsed.data.status}`,
+    data: result.booking,
+  });
+});
+
+adminBookingRoutes.patch("/:id/service-amount", async (c) => {
+  const bookingId = c.req.param("id");
+
+  if (!uuidParamSchema.safeParse(bookingId).success) {
+    return c.json({ success: false, message: "Invalid booking ID format" }, 400);
+  }
+
+  const body = await c.req.json().catch(() => null);
+  if (!body) {
+    return c.json(
+      { success: false, message: "Request body must be valid JSON" },
+      400
+    );
+  }
+
+  const parsed = updateServiceAmountSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json(
+      {
+        success: false,
+        message: "Validation failed",
+        data: parsed.error.flatten().fieldErrors,
+      },
+      422
+    );
+  }
+
+  const result = await bookingService.updateServiceAmount(bookingId, parsed.data);
+
+  if (!result.ok) {
+    const map: Record<string, { status: number; message: string }> = {
+      NOT_FOUND: { status: 404, message: "Booking not found" },
+      ALREADY_PAID: { status: 409, message: "Paid booking amount cannot be changed" },
+    };
+    const err = map[result.error];
+    return c.json({ success: false, message: err.message }, err.status as 404);
+  }
+
+  return c.json({
+    success: true,
+    message: "Service amount updated",
     data: result.booking,
   });
 });

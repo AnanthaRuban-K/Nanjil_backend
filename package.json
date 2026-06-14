@@ -11,9 +11,14 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "db:migrate:existing-upi": "tsx scripts/migrate-existing-upi.ts",
+    "secret:jwt": "tsx scripts/generate-jwt-secret.ts",
+    "smoke:auth": "tsx scripts/smoke-auth-flow.ts",
+    "setup:initial": "tsx scripts/initial-setup.ts",
     "seed:admin": "tsx scripts/seed-admin.ts",
     "seed:technicians": "tsx scripts/seed-technicians.ts",
     "backup": "bash scripts/backup-db.sh",
+    "test": "node --import ./tests/setup-env.mjs --import tsx --test tests/**/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

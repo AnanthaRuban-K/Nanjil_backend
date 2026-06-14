@@ -44,6 +44,18 @@ export async function testConnection(): Promise<void> {
 }
 
 // ── Graceful shutdown ──────────────────────────────
+export async function checkConnection(): Promise<boolean> {
+  const client = await pool.connect();
+  try {
+    await client.query("SELECT 1");
+    return true;
+  } catch {
+    return false;
+  } finally {
+    client.release();
+  }
+}
+
 export async function closeConnection(): Promise<void> {
   await pool.end();
   console.log("🔌  Database pool closed");

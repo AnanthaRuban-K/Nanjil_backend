@@ -9,7 +9,7 @@ const ADMINS = [
   {
     fullName: "Admin One",
     email: "admin1@nanjilmep.com",
-    phone: "9800000001",
+    phone: "+918428489046",
   },
   {
     fullName: "Admin Two",

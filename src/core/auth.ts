@@ -11,8 +11,15 @@ export interface TokenPayload {
   is_active: boolean;
 }
 
+export interface PasswordResetPayload {
+  sub: string;
+  email: string;
+  purpose: "PASSWORD_RESET";
+}
+
 const SALT_ROUNDS = 12;
 const TOKEN_EXPIRY = "24h";
+const PASSWORD_RESET_EXPIRY = "15m";
 
 // ── JWT helpers ────────────────────────────────────
 export function generateToken(user: User): string {
@@ -28,6 +35,28 @@ export function generateToken(user: User): string {
 
 export function verifyToken(token: string): TokenPayload {
   return jwt.verify(token, config.JWT_SECRET) as TokenPayload;
+}
+
+export function generatePasswordResetToken(user: User): string {
+  const payload: PasswordResetPayload = {
+    sub: user.id,
+    email: user.email,
+    purpose: "PASSWORD_RESET",
+  };
+
+  return jwt.sign(payload, config.JWT_SECRET, {
+    expiresIn: PASSWORD_RESET_EXPIRY,
+  });
+}
+
+export function verifyPasswordResetToken(token: string): PasswordResetPayload {
+  const payload = jwt.verify(token, config.JWT_SECRET) as PasswordResetPayload;
+
+  if (payload.purpose !== "PASSWORD_RESET") {
+    throw new Error("Invalid token purpose");
+  }
+
+  return payload;
 }
 
 // ── Password helpers ───────────────────────────────
