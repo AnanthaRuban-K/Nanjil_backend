@@ -19,6 +19,17 @@ export interface PaginatedResult<T> {
   total: number;
 }
 
+export interface BookingCustomerContact {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+}
+
+export type BookingWithCustomer = Booking & {
+  customer: BookingCustomerContact | null;
+};
+
 export class BookingRepository {
   // ────────────────────────────────────────────────
   // Reference generator  –  NMS-YYYY-00001
@@ -110,14 +121,23 @@ export class BookingRepository {
     technicianId: string,
     page: number,
     limit: number
-  ): Promise<PaginatedResult<Booking>> {
+  ): Promise<PaginatedResult<BookingWithCustomer>> {
     const offset = (page - 1) * limit;
     const condition = eq(bookings.technicianId, technicianId);
 
     const [data, totalRows] = await Promise.all([
       db
-        .select()
+        .select({
+          booking: bookings,
+          customer: {
+            id: users.id,
+            fullName: users.fullName,
+            email: users.email,
+            phone: users.phone,
+          },
+        })
         .from(bookings)
+        .leftJoin(users, eq(bookings.customerId, users.id))
         .where(condition)
         .orderBy(desc(bookings.createdAt))
         .limit(limit)
@@ -128,7 +148,10 @@ export class BookingRepository {
         .where(condition),
     ]);
 
-    return { data, total: Number(totalRows[0].total) };
+    return {
+      data: data.map((row) => ({ ...row.booking, customer: row.customer })),
+      total: Number(totalRows[0].total),
+    };
   }
 
   async findAll(
@@ -139,7 +162,7 @@ export class BookingRepository {
     search?: string,
     dateFrom?: string,
     dateTo?: string
-  ): Promise<PaginatedResult<Booking>> {
+  ): Promise<PaginatedResult<BookingWithCustomer>> {
     const offset = (page - 1) * limit;
     const conditions = [
       status ? eq(bookings.status, status) : undefined,
@@ -161,7 +184,15 @@ export class BookingRepository {
 
     const baseQuery = () => {
       const query = db
-        .select({ booking: bookings })
+        .select({
+          booking: bookings,
+          customer: {
+            id: users.id,
+            fullName: users.fullName,
+            email: users.email,
+            phone: users.phone,
+          },
+        })
         .from(bookings)
         .leftJoin(users, eq(bookings.customerId, users.id));
       return condition ? query.where(condition) : query;
@@ -180,7 +211,10 @@ export class BookingRepository {
       countQuery(),
     ]);
 
-    return { data: data.map((row) => row.booking), total: Number(totalRows[0].total) };
+    return {
+      data: data.map((row) => ({ ...row.booking, customer: row.customer })),
+      total: Number(totalRows[0].total),
+    };
   }
 
   // ────────────────────────────────────────────────
