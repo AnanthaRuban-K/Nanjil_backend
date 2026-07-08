@@ -154,6 +154,49 @@ adminUserRoutes.patch("/admins/:id", async (c) => {
   return c.json({ success: true, message: "Admin updated", data: updated });
 });
 
+adminUserRoutes.delete("/admins/:id", async (c) => {
+  const currentUser = c.get("user");
+  const id = c.req.param("id");
+  if (!uuidParamSchema.safeParse(id).success) {
+    return c.json({ success: false, message: "Invalid admin ID format" }, 400);
+  }
+
+  if (id === currentUser.sub) {
+    return c.json(
+      { success: false, message: "You cannot delete your own admin account" },
+      400
+    );
+  }
+
+  try {
+    const deleted = await userRepository.deleteAdmin(id);
+
+    if (!deleted) {
+      return c.json({ success: false, message: "Admin not found" }, 404);
+    }
+
+    return c.json({ success: true, message: "Admin deleted", data: deleted });
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "23503"
+    ) {
+      return c.json(
+        {
+          success: false,
+          message:
+            "This admin has booking or payment history. Deactivate the account instead.",
+        },
+        409
+      );
+    }
+
+    throw error;
+  }
+});
+
 adminUserRoutes.patch("/technicians/:id", async (c) => {
   const id = c.req.param("id");
   if (!uuidParamSchema.safeParse(id).success) {
@@ -189,6 +232,45 @@ adminUserRoutes.patch("/technicians/:id", async (c) => {
   }
 
   return c.json({ success: true, message: "Technician updated", data: updated });
+});
+
+adminUserRoutes.delete("/technicians/:id", async (c) => {
+  const id = c.req.param("id");
+  if (!uuidParamSchema.safeParse(id).success) {
+    return c.json({ success: false, message: "Invalid technician ID format" }, 400);
+  }
+
+  try {
+    const deleted = await userRepository.deleteTechnician(id);
+
+    if (!deleted) {
+      return c.json({ success: false, message: "Technician not found" }, 404);
+    }
+
+    return c.json({
+      success: true,
+      message: "Technician deleted",
+      data: deleted,
+    });
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "23503"
+    ) {
+      return c.json(
+        {
+          success: false,
+          message:
+            "This technician has booking history. Deactivate the account instead.",
+        },
+        409
+      );
+    }
+
+    throw error;
+  }
 });
 
 export { adminUserRoutes };

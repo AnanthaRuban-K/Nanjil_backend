@@ -98,6 +98,14 @@ export class UserRepository {
     return this.updateByRole(id, "ADMIN", data);
   }
 
+  async deleteTechnician(id: string): Promise<SafeUser | undefined> {
+    return this.deleteByRole(id, "TECHNICIAN");
+  }
+
+  async deleteAdmin(id: string): Promise<SafeUser | undefined> {
+    return this.deleteByRole(id, "ADMIN");
+  }
+
   private async updateByRole(
     id: string,
     role: UserRole,
@@ -140,6 +148,27 @@ export class UserRepository {
       })
       .where(eq(users.id, id))
       .returning();
+
+    return rows[0];
+  }
+
+  private async deleteByRole(
+    id: string,
+    role: UserRole
+  ): Promise<SafeUser | undefined> {
+    const rows = await db
+      .delete(users)
+      .where(and(eq(users.id, id), eq(users.role, role)))
+      .returning({
+        id: users.id,
+        fullName: users.fullName,
+        email: users.email,
+        phone: users.phone,
+        role: users.role,
+        isActive: users.isActive,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      });
 
     return rows[0];
   }
