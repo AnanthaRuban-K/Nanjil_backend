@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { and, eq, notInArray } from "drizzle-orm";
+import { and, eq, inArray, notInArray } from "drizzle-orm";
 import { db, closeConnection, testConnection } from "../src/core/db";
 import { hashPassword } from "../src/core/auth";
 import { users } from "../src/models/user";
@@ -20,6 +20,15 @@ const ADMINS = [
     email: "vengadeshs@nanjilmepservice.com",
     phone: "+918428489046",
   },
+] as const;
+
+const TEST_TECHNICIAN_EMAILS = [
+  "tech1@nanjilmep.com",
+  "tech2@nanjilmep.com",
+  "tech3@nanjilmep.com",
+  "tech4@nanjilmep.com",
+  "tech5@nanjilmep.com",
+  "tech6@nanjilmep.com",
 ] as const;
 
 function env(name: string) {
@@ -45,6 +54,17 @@ async function main() {
     .update(users)
     .set({ isActive: false, updatedAt: new Date() })
     .where(and(eq(users.role, "ADMIN"), notInArray(users.email, adminEmails)))
+    .returning({ email: users.email });
+
+  const deactivatedTechnicians = await db
+    .update(users)
+    .set({ isActive: false, updatedAt: new Date() })
+    .where(
+      and(
+        eq(users.role, "TECHNICIAN"),
+        inArray(users.email, [...TEST_TECHNICIAN_EMAILS])
+      )
+    )
     .returning({ email: users.email });
 
   for (const admin of ADMINS) {
@@ -90,6 +110,13 @@ async function main() {
     console.log("Deactivated old admin emails:");
     for (const admin of deactivated) {
       console.log(`- ${admin.email}`);
+    }
+  }
+
+  if (deactivatedTechnicians.length > 0) {
+    console.log("Deactivated test technician emails:");
+    for (const technician of deactivatedTechnicians) {
+      console.log(`- ${technician.email}`);
     }
   }
 

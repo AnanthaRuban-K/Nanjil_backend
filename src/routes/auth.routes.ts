@@ -106,11 +106,11 @@ auth.post("/login", rateLimiter(5, 60_000), async (c) => {
   if (!result.ok) {
     if (result.error === "ACCOUNT_INACTIVE") {
       return c.json(
-        { success: false, message: "Account is deactivated — contact admin" },
+        { success: false, message: "Account is deactivated. Contact admin." },
         403
       );
     }
-    // INVALID_CREDENTIALS  → never reveal which field is wrong
+    // INVALID_CREDENTIALS: never reveal which field is wrong
     return c.json(
       { success: false, message: "Invalid email or password" },
       401
