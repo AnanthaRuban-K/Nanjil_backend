@@ -7,19 +7,19 @@ import { eq } from "drizzle-orm";
 // ── 3 Admin users ──────────────────────────────────
 const ADMINS = [
   {
-    fullName: "Admin One",
-    email: "admin1@nanjilmep.com",
+    fullName: "Kannan",
+    email: "kannan@nanjilmepservice.com",
     phone: "+918428489046",
   },
   {
-    fullName: "Admin Two",
-    email: "admin2@nanjilmep.com",
-    phone: "9800000002",
+    fullName: "Thangarethinam",
+    email: "thangarethinam@nanjilmepservice.com",
+    phone: "+918428489046",
   },
   {
-    fullName: "Admin Three",
-    email: "admin3@nanjilmep.com",
-    phone: "9800000003",
+    fullName: "Vengadesh S",
+    email: "vengadeshs@nanjilmepservice.com",
+    phone: "+918428489046",
   },
 ];
 

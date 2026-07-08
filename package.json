@@ -16,6 +16,7 @@
     "smoke:auth": "tsx scripts/smoke-auth-flow.ts",
     "setup:initial": "tsx scripts/initial-setup.ts",
     "seed:admin": "tsx scripts/seed-admin.ts",
+    "sync:production-admins": "tsx scripts/sync-production-admins.ts",
     "seed:technicians": "tsx scripts/seed-technicians.ts",
     "backup": "bash scripts/backup-db.sh",
     "test": "node --import ./tests/setup-env.mjs --import tsx --test tests/**/*.test.ts",
