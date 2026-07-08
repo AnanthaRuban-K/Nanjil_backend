@@ -16,6 +16,7 @@
     "smoke:auth": "tsx scripts/smoke-auth-flow.ts",
     "setup:initial": "tsx scripts/initial-setup.ts",
     "audit:admin-login": "tsx scripts/audit-admin-login.ts",
+    "audit:notifications": "tsx scripts/audit-notification-config.ts",
     "seed:admin": "tsx scripts/seed-admin.ts",
     "sync:production-admins": "tsx scripts/sync-production-admins.ts",
     "seed:technicians": "tsx scripts/seed-technicians.ts",

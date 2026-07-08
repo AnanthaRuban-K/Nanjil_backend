@@ -10,11 +10,18 @@ type NotificationMessage = {
   text: string;
 };
 
+const REQUIRED_ADMIN_EMAILS = [
+  "kannan@nanjilmepservice.com",
+  "thangarethinam@nanjilmepservice.com",
+  "vengadeshs@nanjilmepservice.com",
+];
+
 function adminEmails(): string[] {
-  return (config.ADMIN_EMAILS || "")
+  return [...REQUIRED_ADMIN_EMAILS, ...(config.ADMIN_EMAILS || "")
     .split(",")
     .map((email) => email.trim())
-    .filter(Boolean);
+    .filter(Boolean)]
+    .filter((email, index, emails) => emails.indexOf(email) === index);
 }
 
 function bookingUrl(bookingId: string, role: "admin" | "customer" | "technician") {
