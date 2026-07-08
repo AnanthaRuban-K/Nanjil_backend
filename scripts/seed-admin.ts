@@ -23,8 +23,13 @@ const ADMINS = [
   },
 ];
 
-// ⚠️  Change this immediately after first login
-const DEFAULT_PASSWORD = "NanjilAdmin@2024";
+// Change this immediately after first login.
+const DEFAULT_PASSWORD =
+  (
+    process.env.ADMIN_SYNC_PASSWORD ||
+    process.env.INITIAL_ADMIN_PASSWORD ||
+    "NanjilAdmin@2024"
+  ).trim();
 
 async function seed() {
   console.log("🌱  Seeding admin users …\n");

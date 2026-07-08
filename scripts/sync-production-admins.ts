@@ -82,11 +82,16 @@ async function main() {
           phone: admin.phone,
           role: "ADMIN",
           isActive: true,
+          ...(hashedPassword ? { hashedPassword } : {}),
           updatedAt: new Date(),
         })
         .where(eq(users.id, existing[0].id));
 
-      console.log(`Active admin synced: ${admin.email}`);
+      console.log(
+        `Active admin synced: ${admin.email}${
+          hashedPassword ? " (password reset)" : ""
+        }`
+      );
       continue;
     }
 
