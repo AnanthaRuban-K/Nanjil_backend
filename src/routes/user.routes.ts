@@ -1,7 +1,9 @@
 import { Hono } from "hono";
 import { authMiddleware, roleMiddleware, type AppEnv } from "../core/middleware";
 import { hashPassword } from "../core/auth";
+import { logger } from "../core/logger";
 import { userRepository } from "../repositories/user.repository";
+import { notificationService } from "../services/notification.service";
 import {
   createAdminSchema,
   createTechnicianSchema,
@@ -55,6 +57,11 @@ adminUserRoutes.post("/technicians", async (c) => {
     role: "TECHNICIAN",
   });
   const { hashedPassword: _, ...safe } = user;
+  void notificationService.accountCreated(safe, parsed.data.password).catch((error) =>
+    logger.warn("NOTIFY", "Technician account-created notification failed", {
+      error: error.message,
+    })
+  );
 
   return c.json(
     { success: true, message: "Technician created", data: safe },
@@ -102,6 +109,11 @@ adminUserRoutes.post("/admins", async (c) => {
     role: "ADMIN",
   });
   const { hashedPassword: _, ...safe } = user;
+  void notificationService.accountCreated(safe, parsed.data.password).catch((error) =>
+    logger.warn("NOTIFY", "Admin account-created notification failed", {
+      error: error.message,
+    })
+  );
 
   return c.json(
     { success: true, message: "Admin created", data: safe },

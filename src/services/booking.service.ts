@@ -117,6 +117,13 @@ export class BookingService {
               error: error.message,
             })
           );
+        void notificationService
+          .customerBookingCreated(booking, customer)
+          .catch((error) =>
+            logger.warn("NOTIFY", "Customer booking-created notification failed", {
+              error: error.message,
+            })
+          );
 
         return { ok: true, booking };
       } catch (error) {
@@ -172,6 +179,13 @@ export class BookingService {
       .customerRequest(booking, customer, input)
       .catch((error) =>
         logger.warn("NOTIFY", "Customer request notification failed", {
+          error: error.message,
+        })
+      );
+    void notificationService
+      .customerRequestConfirmation(booking, customer, input)
+      .catch((error) =>
+        logger.warn("NOTIFY", "Customer request confirmation failed", {
           error: error.message,
         })
       );
@@ -237,6 +251,19 @@ export class BookingService {
           error: error.message,
         })
       );
+    const customer = await userRepository.findById(updated.customerId);
+    void notificationService
+      .bookingStatusChanged(
+        updated,
+        customer,
+        "confirmed",
+        `Technician assigned: ${technician.fullName}`
+      )
+      .catch((error) =>
+        logger.warn("NOTIFY", "Booking-confirmed notification failed", {
+          error: error.message,
+        })
+      );
     return { ok: true, booking: updated };
   }
 
@@ -262,9 +289,17 @@ export class BookingService {
 
     if (!updated) return { ok: false, error: "INVALID_TRANSITION" };
     logger.statusChange(bookingId, booking.status, newStatus, adminId);
+    const customer = await userRepository.findById(booking.customerId);
+
+    void notificationService
+      .bookingStatusChanged(updated, customer, newStatus.toLowerCase().replace("_", " "))
+      .catch((error) =>
+        logger.warn("NOTIFY", "Booking status notification failed", {
+          error: error.message,
+        })
+      );
 
     if (newStatus === "COMPLETED") {
-      const customer = await userRepository.findById(booking.customerId);
       void notificationService
         .paymentPending(updated, customer)
         .catch((error) =>
@@ -332,8 +367,16 @@ export class BookingService {
 
     if (!updated) return { ok: false, error: "INVALID_TRANSITION" };
     logger.statusChange(bookingId, booking.status, newStatus, technicianId);
+    const customer = await userRepository.findById(booking.customerId);
+    void notificationService
+      .bookingStatusChanged(updated, customer, newStatus.toLowerCase().replace("_", " "))
+      .catch((error) =>
+        logger.warn("NOTIFY", "Technician status notification failed", {
+          error: error.message,
+        })
+      );
+
     if (newStatus === "COMPLETED") {
-      const customer = await userRepository.findById(booking.customerId);
       void notificationService
         .paymentPending(updated, customer)
         .catch((error) =>

@@ -7,6 +7,7 @@ import {
   verifyPasswordResetToken,
 } from "../core/auth";
 import { config } from "../core/config";
+import { logger } from "../core/logger";
 import { notificationService } from "./notification.service";
 import type {
   ForgotPasswordInput,
@@ -60,6 +61,11 @@ export class AuthService {
     });
 
     const token = generateToken(user);
+    void notificationService.accountCreated(sanitize(user)).catch((error) =>
+      logger.warn("NOTIFY", "Account-created notification failed", {
+        error: error.message,
+      })
+    );
 
     return { ok: true, user: sanitize(user), token };
   }

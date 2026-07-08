@@ -80,6 +80,18 @@ export class PaymentService {
     }
 
     logger.payment("RECORDED", bookingId, amount.toFixed(2));
+    const customer = await userRepository.findById(booking.customerId);
+    void notificationService
+      .paymentVerified(booking, customer, {
+        amount: payment.amount,
+        paymentMode: payment.paymentMode,
+        invoiceNumber: payment.invoiceNumber,
+      })
+      .catch((error) =>
+        logger.warn("NOTIFY", "Payment-verified notification failed", {
+          error: error.message,
+        })
+      );
     return { ok: true, payment };
   }
 
@@ -176,6 +188,14 @@ export class PaymentService {
     }
 
     logger.payment("REJECTED", bookingId, input.reason ?? "");
+    const customer = await userRepository.findById(booking.customerId);
+    void notificationService
+      .paymentRejected(updated, customer)
+      .catch((error) =>
+        logger.warn("NOTIFY", "Payment-rejected notification failed", {
+          error: error.message,
+        })
+      );
     return { ok: true, booking: updated };
   }
 }
