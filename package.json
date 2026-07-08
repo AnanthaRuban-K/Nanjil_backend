@@ -15,6 +15,7 @@
     "secret:jwt": "tsx scripts/generate-jwt-secret.ts",
     "smoke:auth": "tsx scripts/smoke-auth-flow.ts",
     "setup:initial": "tsx scripts/initial-setup.ts",
+    "audit:admin-login": "tsx scripts/audit-admin-login.ts",
     "seed:admin": "tsx scripts/seed-admin.ts",
     "sync:production-admins": "tsx scripts/sync-production-admins.ts",
     "seed:technicians": "tsx scripts/seed-technicians.ts",
