@@ -30,7 +30,7 @@ function setAuthCookie(c: Parameters<typeof setCookie>[0], token: string) {
 // ────────────────────────────────────────────────────
 // POST /api/v1/auth/register  →  CUSTOMER only
 // ────────────────────────────────────────────────────
-auth.post("/register", async (c) => {
+auth.post("/register", rateLimiter(5, 60_000), async (c) => {
   const body = await c.req.json().catch(() => null);
 
   if (!body) {
@@ -69,7 +69,7 @@ auth.post("/register", async (c) => {
     {
       success: true,
       message: "Registration successful",
-      data: { user: result.user, token: result.token },
+      data: { user: result.user },
     },
     201
   );
@@ -124,7 +124,7 @@ auth.post("/login", rateLimiter(5, 60_000), async (c) => {
     {
       success: true,
       message: "Login successful",
-      data: { user: result.user, token: result.token },
+      data: { user: result.user },
     },
     200
   );

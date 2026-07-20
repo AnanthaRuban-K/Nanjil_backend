@@ -9,12 +9,14 @@ export interface TokenPayload {
   role: string;
   email: string;
   is_active: boolean;
+  ver: number;
 }
 
 export interface PasswordResetPayload {
   sub: string;
   email: string;
   purpose: "PASSWORD_RESET";
+  ver: number;
 }
 
 const SALT_ROUNDS = 12;
@@ -28,13 +30,25 @@ export function generateToken(user: User): string {
     role: user.role,
     email: user.email,
     is_active: user.isActive,
+    ver: user.tokenVersion,
   };
 
   return jwt.sign(payload, config.JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
 }
 
 export function verifyToken(token: string): TokenPayload {
-  return jwt.verify(token, config.JWT_SECRET) as TokenPayload;
+  const payload = jwt.verify(token, config.JWT_SECRET);
+  if (
+    typeof payload !== "object" ||
+    typeof payload.sub !== "string" ||
+    typeof payload.role !== "string" ||
+    typeof payload.email !== "string" ||
+    typeof payload.is_active !== "boolean" ||
+    !Number.isInteger(payload.ver)
+  ) {
+    throw new Error("Invalid access token payload");
+  }
+  return payload as TokenPayload;
 }
 
 export function generatePasswordResetToken(user: User): string {
@@ -42,6 +56,7 @@ export function generatePasswordResetToken(user: User): string {
     sub: user.id,
     email: user.email,
     purpose: "PASSWORD_RESET",
+    ver: user.tokenVersion,
   };
 
   return jwt.sign(payload, config.JWT_SECRET, {
@@ -52,7 +67,12 @@ export function generatePasswordResetToken(user: User): string {
 export function verifyPasswordResetToken(token: string): PasswordResetPayload {
   const payload = jwt.verify(token, config.JWT_SECRET) as PasswordResetPayload;
 
-  if (payload.purpose !== "PASSWORD_RESET") {
+  if (
+    payload.purpose !== "PASSWORD_RESET" ||
+    typeof payload.sub !== "string" ||
+    typeof payload.email !== "string" ||
+    !Number.isInteger(payload.ver)
+  ) {
     throw new Error("Invalid token purpose");
   }
 

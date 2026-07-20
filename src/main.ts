@@ -8,6 +8,8 @@ import { csrfMiddleware } from "./core/csrf";
 import { checkConnection, testConnection } from "./core/db";
 import { logger } from "./core/logger";
 import { requestIdMiddleware } from "./core/request-id";
+import { requestBodyLimitMiddleware } from "./core/request-body-limit";
+import { rateLimiter } from "./core/rate-limiter";
 import { securityHeadersMiddleware } from "./core/security-headers";
 import type { AppEnv } from "./core/middleware";
 
@@ -47,6 +49,8 @@ app.use(
 // ── Request logging ────────────────────────────────
 app.use("*", requestIdMiddleware);
 app.use("*", securityHeadersMiddleware);
+app.use("/api/*", rateLimiter(120, 60_000));
+app.use("/api/*", requestBodyLimitMiddleware);
 app.use("*", honoLogger());
 app.use("*", csrfMiddleware);
 
@@ -61,7 +65,6 @@ app.get("/api/v1/health", async (c) => {
       message: "Nanjil MEP Service API",
       data: {
         database: isHealthy ? "connected" : "disconnected",
-        environment: config.NODE_ENV,
         timestamp: new Date().toISOString(),
       },
     },

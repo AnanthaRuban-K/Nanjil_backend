@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "../core/db";
 import {
   users,
@@ -120,7 +120,10 @@ export class UserRepository {
           ? { isActive: data.isActive }
           : {}),
         ...(data.hashedPassword
-          ? { hashedPassword: data.hashedPassword }
+          ? {
+              hashedPassword: data.hashedPassword,
+              tokenVersion: sql`${users.tokenVersion} + 1`,
+            }
           : {}),
         updatedAt: new Date(),
       })
@@ -139,14 +142,24 @@ export class UserRepository {
     return rows[0];
   }
 
-  async updatePassword(id: string, hashedPassword: string): Promise<User | undefined> {
+  async updatePassword(
+    id: string,
+    hashedPassword: string,
+    expectedTokenVersion: number
+  ): Promise<User | undefined> {
     const rows = await db
       .update(users)
       .set({
         hashedPassword,
+        tokenVersion: sql`${users.tokenVersion} + 1`,
         updatedAt: new Date(),
       })
-      .where(eq(users.id, id))
+      .where(
+        and(
+          eq(users.id, id),
+          eq(users.tokenVersion, expectedTokenVersion)
+        )
+      )
       .returning();
 
     return rows[0];

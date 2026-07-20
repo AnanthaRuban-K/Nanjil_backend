@@ -2,6 +2,7 @@ import { createMiddleware } from "hono/factory";
 import { getCookie } from "hono/cookie";
 import { verifyToken, type TokenPayload } from "./auth";
 import type { UserRole } from "../models/user";
+import { userRepository } from "../repositories/user.repository";
 
 // ── Hono env type – makes c.get('user') typed ─────
 export type AppEnv = {
@@ -29,15 +30,29 @@ export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
 
   try {
     const payload = verifyToken(token as string);
+    const currentUser = await userRepository.findById(payload.sub);
 
-    if (!payload.is_active) {
+    if (!currentUser || currentUser.tokenVersion !== payload.ver) {
+      return c.json(
+        { success: false, message: "Session is no longer valid" },
+        401
+      );
+    }
+
+    if (!currentUser.isActive) {
       return c.json(
         { success: false, message: "Account is deactivated" },
         403
       );
     }
 
-    c.set("user", payload);
+    c.set("user", {
+      ...payload,
+      role: currentUser.role,
+      email: currentUser.email,
+      is_active: currentUser.isActive,
+      ver: currentUser.tokenVersion,
+    });
     await next();
   } catch {
     return c.json(

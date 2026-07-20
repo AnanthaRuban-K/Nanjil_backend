@@ -38,7 +38,7 @@ type ResetPasswordResult = ResetPasswordSuccess | ResetPasswordFailure;
 // ── Strip hashed_password before sending to client ─
 function sanitize(user: User): SafeUser {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { hashedPassword: _, ...safe } = user;
+  const { hashedPassword: _, tokenVersion: __, ...safe } = user;
   return safe;
 }
 
@@ -133,7 +133,11 @@ export class AuthService {
       const payload = verifyPasswordResetToken(input.token);
       const user = await userRepository.findById(payload.sub);
 
-      if (!user || user.email !== payload.email) {
+      if (
+        !user ||
+        user.email !== payload.email ||
+        user.tokenVersion !== payload.ver
+      ) {
         return { ok: false, error: "INVALID_OR_EXPIRED_TOKEN" };
       }
 
@@ -142,7 +146,14 @@ export class AuthService {
       }
 
       const hashed = await hashPassword(input.password);
-      await userRepository.updatePassword(user.id, hashed);
+      const updated = await userRepository.updatePassword(
+        user.id,
+        hashed,
+        payload.ver
+      );
+      if (!updated) {
+        return { ok: false, error: "INVALID_OR_EXPIRED_TOKEN" };
+      }
 
       return { ok: true };
     } catch {

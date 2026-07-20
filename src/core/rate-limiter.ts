@@ -1,4 +1,7 @@
 import { createMiddleware } from "hono/factory";
+import { getConnInfo } from "@hono/node-server/conninfo";
+import { isIP } from "node:net";
+import { config } from "./config";
 
 interface RateRecord {
   count: number;
@@ -23,10 +26,19 @@ export function rateLimiter(maxAttempts: number, windowMs: number) {
   }, 60_000).unref();
 
   return createMiddleware(async (c, next) => {
-    const ip =
-      c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ||
-      c.req.header("x-real-ip") ||
-      "unknown";
+    let remoteAddress = "unknown";
+    try {
+      remoteAddress = getConnInfo(c).remote.address ?? "unknown";
+    } catch {
+      // Synthetic requests in tests may not expose a Node socket.
+    }
+
+    const ip = resolveClientIp(
+      c.req.header("x-forwarded-for"),
+      c.req.header("x-real-ip"),
+      remoteAddress,
+      config.TRUST_PROXY_HOPS
+    );
 
     const now = Date.now();
     const record = store.get(ip);
@@ -50,4 +62,26 @@ export function rateLimiter(maxAttempts: number, windowMs: number) {
 
     await next();
   });
+}
+
+export function resolveClientIp(
+  forwardedFor: string | undefined,
+  realIp: string | undefined,
+  remoteAddress: string,
+  trustedProxyHops: number
+): string {
+  if (trustedProxyHops <= 0) return remoteAddress;
+
+  const forwarded = (forwardedFor ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => isIP(value) !== 0);
+  const forwardedIndex = forwarded.length - trustedProxyHops;
+
+  if (forwardedIndex >= 0) return forwarded[forwardedIndex];
+  if (trustedProxyHops === 1 && realIp && isIP(realIp.trim()) !== 0) {
+    return realIp.trim();
+  }
+
+  return remoteAddress;
 }

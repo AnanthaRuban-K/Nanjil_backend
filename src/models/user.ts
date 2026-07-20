@@ -4,6 +4,7 @@ import {
   varchar,
   text,
   boolean,
+  integer,
   timestamp,
   pgEnum,
   index,
@@ -30,6 +31,7 @@ export const users = pgTable(
     hashedPassword: text("hashed_password").notNull(),
     role: userRoleEnum("role").notNull().default("CUSTOMER"),
     isActive: boolean("is_active").notNull().default(true),
+    tokenVersion: integer("token_version").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -47,4 +49,4 @@ export const users = pgTable(
 // ── Derived TypeScript types ───────────────────────
 export type User = InferSelectModel<typeof users>;
 export type NewUser = InferInsertModel<typeof users>;
-export type SafeUser = Omit<User, "hashedPassword">;
+export type SafeUser = Omit<User, "hashedPassword" | "tokenVersion">;

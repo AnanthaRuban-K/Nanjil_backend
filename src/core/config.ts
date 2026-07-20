@@ -16,6 +16,7 @@ const envSchema = z.object({
     .string()
     .default("http://localhost:4001"),
   COOKIE_DOMAIN: z.string().optional(),
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
   FRONTEND_URL: z.string().url().default("http://localhost:4001"),
   ADMIN_EMAILS: z.string().optional(),
   SMTP_HOST: z.string().optional(),
