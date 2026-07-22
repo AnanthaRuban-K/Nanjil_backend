@@ -112,7 +112,7 @@ auth.post("/login", rateLimiter(5, 60_000), async (c) => {
     }
     // INVALID_CREDENTIALS: never reveal which field is wrong
     return c.json(
-      { success: false, message: "Invalid email or password" },
+      { success: false, message: "Invalid email/phone or password" },
       401
     );
   }

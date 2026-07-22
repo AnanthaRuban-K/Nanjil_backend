@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../core/db";
 import {
   users,
@@ -140,6 +140,33 @@ export class UserRepository {
       });
 
     return rows[0];
+  }
+
+  /** Find one unambiguous account by email or registered phone number. */
+  async findByLoginIdentifier(identifier: string): Promise<User | undefined> {
+    if (identifier.includes("@")) {
+      return this.findByEmail(identifier.toLowerCase());
+    }
+
+    const digits = identifier.replace(/^\+/, "");
+    const variants = new Set<string>([identifier, digits, `+${digits}`]);
+
+    // Accept common Indian local and country-code forms interchangeably.
+    if (digits.length === 10) {
+      variants.add(`91${digits}`);
+      variants.add(`+91${digits}`);
+    } else if (digits.length === 12 && digits.startsWith("91")) {
+      variants.add(digits.slice(2));
+    }
+
+    const rows = await db
+      .select()
+      .from(users)
+      .where(inArray(users.phone, [...variants]))
+      .limit(2);
+
+    // Never select an arbitrary account when a phone is duplicated.
+    return rows.length === 1 ? rows[0] : undefined;
   }
 
   async updatePassword(

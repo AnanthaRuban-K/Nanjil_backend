@@ -72,7 +72,7 @@ export class AuthService {
 
   // ── Login (any role) ─────────────────────────────
   async login(input: LoginInput): Promise<LoginResult> {
-    const user = await userRepository.findByEmail(input.email);
+    const user = await userRepository.findByLoginIdentifier(input.identifier);
 
     if (!user) {
       return { ok: false, error: "INVALID_CREDENTIALS" };
